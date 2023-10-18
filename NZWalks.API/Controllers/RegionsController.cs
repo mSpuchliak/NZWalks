@@ -2,6 +2,7 @@
 using NZWalks.API.Data;
 using NZWalks.API.Models.Domain;
 using NZWalks.API.Models.DTO;
+using NZWalks.API.Repositories;
 
 namespace NZWalks.API.Controllers
 {
@@ -9,16 +10,19 @@ namespace NZWalks.API.Controllers
     [ApiController]
     public class RegionsController : ControllerBase
     {
-        private readonly NZWalksDbContext _context;
-        public RegionsController(NZWalksDbContext dbContext)
+        private readonly NZWalksDbContext context;
+        private readonly IRegionRepository regionRepository;
+
+        public RegionsController(NZWalksDbContext context, IRegionRepository regionRepository)
         {
-            this._context = dbContext;
+            this.context = context;
+            this.regionRepository = regionRepository;
         }
         
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            var regionsDomainModel = _context.Regions.ToList(); 
+            var regionsDomainModel = await regionRepository.GetAllAsync();
 
             var regionsDTO = new List<RegionDTO>();
 
@@ -37,9 +41,9 @@ namespace NZWalks.API.Controllers
         
         [HttpGet]
         [Route("{id:Guid}")]
-        public IActionResult GetById([FromRoute]Guid id)
+        public async Task<IActionResult> GetById([FromRoute]Guid id)
         {
-            var regionDomainModel = _context.Regions.Find(id);
+            var regionDomainModel = await regionRepository.GetByIdAsync(id);
             
             if(regionDomainModel == null)
                 return NotFound();
@@ -56,7 +60,7 @@ namespace NZWalks.API.Controllers
         }
 
         [HttpPost]
-        public IActionResult Create([FromBody] AddRegionRequestDTO addRegionRequestDTO)
+        public async Task<IActionResult> Create([FromBody] AddRegionRequestDTO addRegionRequestDTO)
         {
             var regionDomainModel = new Region()
             {
@@ -65,8 +69,7 @@ namespace NZWalks.API.Controllers
                 RegionImageUrl = addRegionRequestDTO.RegionImageUrl
             };
 
-            _context.Regions.Add(regionDomainModel);
-            _context.SaveChanges();
+            regionDomainModel = await regionRepository.CreateAsync(regionDomainModel);
 
             var regionDTO = new RegionDTO
             {
@@ -81,20 +84,21 @@ namespace NZWalks.API.Controllers
 
         [HttpPut]
         [Route("{id:Guid}")]
-        public IActionResult Update([FromRoute] Guid id, [FromBody] UpdateRegionRequestDTO updateRegionRequestDTO)
+        public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] UpdateRegionRequestDTO updateRegionRequestDTO)
         {
-            var regionDomainModel =  _context.Regions.FirstOrDefault(x => x.Id == id);
+            var regionDomainModel = new Region()
+            {
+                Code = updateRegionRequestDTO.Code,
+                Name = updateRegionRequestDTO.Name,
+                RegionImageUrl = updateRegionRequestDTO.RegionImageUrl
+            };
+
+            regionDomainModel = await regionRepository.UpdateAsync(id, regionDomainModel);
 
             if(regionDomainModel == null)
             {
                 return NotFound();
             }
-
-            regionDomainModel.Code = updateRegionRequestDTO.Code;
-            regionDomainModel.Name = updateRegionRequestDTO.Name;
-            regionDomainModel.RegionImageUrl = updateRegionRequestDTO.RegionImageUrl;
-
-            _context.SaveChanges();
 
             var regionDTO = new RegionDTO()
             {
@@ -109,17 +113,14 @@ namespace NZWalks.API.Controllers
 
         [HttpDelete]
         [Route("{id:Guid}")]
-        public IActionResult Delete([FromRoute] Guid id)
+        public async Task<IActionResult> Delete([FromRoute] Guid id)
         {
-            var regionDomainModel = _context.Regions.FirstOrDefault(x => x.Id == id);
+            var regionDomainModel = await regionRepository.DeleteAsync(id);
 
             if (regionDomainModel == null)
             {
                 return NotFound();
             }
-
-            _context.Remove(regionDomainModel);
-            _context.SaveChanges();
 
             return Ok();
         }
